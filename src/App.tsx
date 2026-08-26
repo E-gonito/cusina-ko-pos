@@ -28,7 +28,10 @@ export function App() {
           <button
             key={n.name}
             className={view.name === n.name ? 'active' : ''}
-            onClick={() => setView({ name: n.name } as const as View)}
+            onClick={() => {
+              const next: View = { name: n.name };
+              setView(next);
+            }}
           >
             {n.label}
           </button>
