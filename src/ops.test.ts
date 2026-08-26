@@ -39,6 +39,14 @@ describe('order lines', () => {
     expect(lines.find(l => l.name === 'Chicken Adobo')?.qty).toBe(2);
   });
 
+  it('closes the addItem race: concurrent adds of the same item merge into one line', async () => {
+    const tabId = await openTab(1);
+    await Promise.all([addItem(tabId, adobo), addItem(tabId, adobo)]);
+    const lines = await db.orderLines.where({ tabId }).toArray();
+    expect(lines).toHaveLength(1);
+    expect(lines[0].qty).toBe(2);
+  });
+
   it('deletes a line when qty is set to 0, and never drops qty below paidQty', async () => {
     const tabId = await openTab(1);
     await addItem(tabId, adobo);

@@ -1,9 +1,11 @@
 import { db, type MenuItem, type OrderLine, type Tab } from './db';
 
 export async function openTab(tableNumber: number, covers = 1): Promise<number> {
-  const existing = await getOpenTab(tableNumber);
-  if (existing) return existing.id!;
-  return db.tabs.add({ tableNumber, covers, status: 'open', openedAt: Date.now(), closedAt: null });
+  return db.transaction('rw', db.tabs, db.orderLines, async () => {
+    const existing = await getOpenTab(tableNumber);
+    if (existing) return existing.id!;
+    return db.tabs.add({ tableNumber, covers, status: 'open', openedAt: Date.now(), closedAt: null });
+  });
 }
 
 export function getOpenTab(tableNumber: number): Promise<Tab | undefined> {
@@ -11,31 +13,37 @@ export function getOpenTab(tableNumber: number): Promise<Tab | undefined> {
 }
 
 export async function addItem(tabId: number, item: MenuItem): Promise<void> {
-  const existing = await db.orderLines
-    .where({ tabId })
-    .filter(l => l.name === item.name && l.priceMinor === item.priceMinor)
-    .first();
-  if (existing) {
-    await db.orderLines.update(existing.id!, { qty: existing.qty + 1 });
-  } else {
-    await db.orderLines.add({
-      tabId, name: item.name, priceMinor: item.priceMinor,
-      qty: 1, paidQty: 0, addedAt: Date.now(),
-    });
-  }
+  return db.transaction('rw', db.orderLines, async () => {
+    const existing = await db.orderLines
+      .where({ tabId })
+      .filter(l => l.name === item.name && l.priceMinor === item.priceMinor)
+      .first();
+    if (existing) {
+      await db.orderLines.update(existing.id!, { qty: existing.qty + 1 });
+    } else {
+      await db.orderLines.add({
+        tabId, name: item.name, priceMinor: item.priceMinor,
+        qty: 1, paidQty: 0, addedAt: Date.now(),
+      });
+    }
+  });
 }
 
 export async function setLineQty(lineId: number, qty: number): Promise<void> {
-  const line = await db.orderLines.get(lineId);
-  if (!line) return;
-  const clamped = Math.max(line.paidQty, qty);
-  if (clamped <= 0) await db.orderLines.delete(lineId);
-  else await db.orderLines.update(lineId, { qty: clamped });
+  return db.transaction('rw', db.orderLines, async () => {
+    const line = await db.orderLines.get(lineId);
+    if (!line) return;
+    const clamped = Math.max(line.paidQty, qty);
+    if (clamped <= 0) await db.orderLines.delete(lineId);
+    else await db.orderLines.update(lineId, { qty: clamped });
+  });
 }
 
 export async function payLine(lineId: number): Promise<void> {
-  const line = await db.orderLines.get(lineId);
-  if (line) await db.orderLines.update(lineId, { paidQty: line.qty });
+  return db.transaction('rw', db.orderLines, async () => {
+    const line = await db.orderLines.get(lineId);
+    if (line) await db.orderLines.update(lineId, { paidQty: line.qty });
+  });
 }
 
 export async function unpayLine(lineId: number): Promise<void> {
@@ -43,8 +51,10 @@ export async function unpayLine(lineId: number): Promise<void> {
 }
 
 export async function payAll(tabId: number): Promise<void> {
-  const lines = await db.orderLines.where({ tabId }).toArray();
-  await db.orderLines.bulkPut(lines.map(l => ({ ...l, paidQty: l.qty })));
+  return db.transaction('rw', db.orderLines, async () => {
+    const lines = await db.orderLines.where({ tabId }).toArray();
+    await db.orderLines.bulkPut(lines.map(l => ({ ...l, paidQty: l.qty })));
+  });
 }
 
 export async function setCovers(tabId: number, covers: number): Promise<void> {
@@ -64,13 +74,15 @@ export function tabTotals(lines: OrderLine[]): TabTotals {
 }
 
 export async function closeTab(tabId: number): Promise<void> {
-  const lines = await db.orderLines.where({ tabId }).toArray();
-  if (lines.length === 0) {
-    await db.tabs.delete(tabId);
-    return;
-  }
-  if (tabTotals(lines).outstandingMinor !== 0) throw new Error('Tab has unpaid items');
-  await db.tabs.update(tabId, { status: 'closed', closedAt: Date.now() });
+  return db.transaction('rw', db.tabs, db.orderLines, async () => {
+    const lines = await db.orderLines.where({ tabId }).toArray();
+    if (lines.length === 0) {
+      await db.tabs.delete(tabId);
+      return;
+    }
+    if (tabTotals(lines).outstandingMinor !== 0) throw new Error('Tab has unpaid items');
+    await db.tabs.update(tabId, { status: 'closed', closedAt: Date.now() });
+  });
 }
 
 export interface DaySummary {
