@@ -44,10 +44,13 @@ class PosDb extends Dexie {
   constructor() {
     super('cusina-pos');
     this.version(1).stores({
-      menuItems: '++id, name, category, sortOrder',
+      menuItems: '++id, category, sortOrder',
       tabs: '++id, tableNumber, status, closedAt',
       orderLines: '++id, tabId',
       settings: 'key',
+    });
+    this.version(2).stores({
+      menuItems: '++id, name, category, sortOrder',
     });
   }
 }
