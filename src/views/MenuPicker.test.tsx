@@ -1,13 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { db, seedIfEmpty } from '../db';
+import { db, type MenuItem } from '../db';
 import { resetDb } from '../test-utils';
 import { MenuPicker } from './MenuPicker';
 
+// Fixed test fixture — independent of the app's editable starter menu.
+const TEST_MENU: MenuItem[] = [
+  { name: 'Chicken Adobo', priceMinor: 1250, category: 'Food', active: 1, sortOrder: 0 },
+  { name: 'Pork Sisig', priceMinor: 1300, category: 'Food', active: 1, sortOrder: 1 },
+  { name: 'Coke', priceMinor: 280, category: 'Drinks', active: 1, sortOrder: 2 },
+];
+
 beforeEach(async () => {
   await resetDb();
-  await seedIfEmpty();
+  await db.menuItems.bulkAdd(TEST_MENU);
 });
 
 describe('MenuPicker', () => {
