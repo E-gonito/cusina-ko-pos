@@ -72,3 +72,30 @@ export async function closeTab(tabId: number): Promise<void> {
   if (tabTotals(lines).outstandingMinor !== 0) throw new Error('Tab has unpaid items');
   await db.tabs.update(tabId, { status: 'closed', closedAt: Date.now() });
 }
+
+export interface DaySummary {
+  tabCount: number;
+  coverCount: number;
+  takingsMinor: number;
+  items: { name: string; qty: number; amountMinor: number }[];
+}
+
+export async function daySummary(dayStart: number, dayEnd: number): Promise<DaySummary> {
+  const tabs = await db.tabs.where('closedAt').between(dayStart, dayEnd, true, false).toArray();
+  const itemMap = new Map<string, { name: string; qty: number; amountMinor: number }>();
+  let takingsMinor = 0;
+  let coverCount = 0;
+  for (const tab of tabs) {
+    coverCount += tab.covers;
+    const lines = await db.orderLines.where({ tabId: tab.id! }).toArray();
+    for (const l of lines) {
+      takingsMinor += l.priceMinor * l.paidQty;
+      const entry = itemMap.get(l.name) ?? { name: l.name, qty: 0, amountMinor: 0 };
+      entry.qty += l.paidQty;
+      entry.amountMinor += l.priceMinor * l.paidQty;
+      itemMap.set(l.name, entry);
+    }
+  }
+  const items = [...itemMap.values()].sort((a, b) => b.qty - a.qty);
+  return { tabCount: tabs.length, coverCount, takingsMinor, items };
+}

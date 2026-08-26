@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db, type MenuItem } from './db';
 import {
-  addItem, closeTab, getOpenTab, openTab, payAll, payLine, unpayLine,
+  addItem, closeTab, daySummary, getOpenTab, openTab, payAll, payLine, unpayLine,
   setCovers, setLineQty, tabTotals,
 } from './ops';
 import { resetDb } from './test-utils';
@@ -97,5 +97,43 @@ describe('closing', () => {
     const tabId = await openTab(2);
     await closeTab(tabId);
     expect(await db.tabs.get(tabId)).toBeUndefined();
+  });
+});
+
+describe('daySummary', () => {
+  it('aggregates takings, covers, and items for tabs closed in the window', async () => {
+    const t1 = await openTab(1, 2);
+    await addItem(t1, adobo);
+    await addItem(t1, coke);
+    await payAll(t1);
+    await closeTab(t1);
+
+    const t2 = await openTab(2, 3);
+    await addItem(t2, coke);
+    await payAll(t2);
+    await closeTab(t2);
+
+    const openStill = await openTab(3, 4); // open tab must be excluded
+    await addItem(openStill, coke);
+
+    const now = Date.now();
+    const summary = await daySummary(now - 60_000, now + 60_000);
+    expect(summary.tabCount).toBe(2);
+    expect(summary.coverCount).toBe(5);
+    expect(summary.takingsMinor).toBe(1810); // 1250 + 280 + 280
+    expect(summary.items).toEqual([
+      { name: 'Coke', qty: 2, amountMinor: 560 },
+      { name: 'Chicken Adobo', qty: 1, amountMinor: 1250 },
+    ]);
+  });
+
+  it('excludes tabs closed outside the window', async () => {
+    const t1 = await openTab(1);
+    await addItem(t1, coke);
+    await payAll(t1);
+    await closeTab(t1);
+    const summary = await daySummary(0, 1000); // window in 1970
+    expect(summary.tabCount).toBe(0);
+    expect(summary.takingsMinor).toBe(0);
   });
 });
