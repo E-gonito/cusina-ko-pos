@@ -51,9 +51,9 @@ export function TableView({ tableNumber, onBack }: { tableNumber: number; onBack
                 <li key={l.id} className={paid ? 'line paid' : 'line'}>
                   <span className="line-name">{l.name}</span>
                   <span className="qty-controls">
-                    <button aria-label={`decrease ${l.name}`} onClick={() => setLineQty(l.id!, l.qty - 1)}>−</button>
+                    <button aria-label="decrease quantity" onClick={() => setLineQty(l.id!, l.qty - 1)}>−</button>
                     <span>{l.qty}</span>
-                    <button aria-label={`increase ${l.name}`} onClick={() => setLineQty(l.id!, l.qty + 1)}>+</button>
+                    <button aria-label="increase quantity" onClick={() => setLineQty(l.id!, l.qty + 1)}>+</button>
                   </span>
                   <span>{formatMoney(l.priceMinor * l.qty, currency)}</span>
                   {paid ? (
