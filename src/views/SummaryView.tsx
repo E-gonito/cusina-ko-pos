@@ -28,6 +28,9 @@ export function SummaryView() {
             <div className="stat"><strong>{summary.tabCount}</strong><span>tables</span></div>
             <div className="stat"><strong>{summary.coverCount}</strong><span>covers</span></div>
           </div>
+          {summary.discountMinor > 0 && (
+            <p className="empty">Takings are net of {formatMoney(summary.discountMinor, currency)} in discounts.</p>
+          )}
           <h2>Items sold</h2>
           {summary.items.length === 0 ? (
             <p className="empty">Nothing sold this day.</p>

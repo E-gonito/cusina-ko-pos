@@ -61,16 +61,29 @@ export async function setCovers(tabId: number, covers: number): Promise<void> {
   await db.tabs.update(tabId, { covers: Math.max(1, covers) });
 }
 
+export async function setDiscount(tabId: number, discountPct: number): Promise<void> {
+  const clamped = Math.max(0, Math.min(100, Math.round(discountPct)));
+  await db.tabs.update(tabId, { discountPct: clamped });
+}
+
 export interface TabTotals {
-  totalMinor: number;
-  paidMinor: number;
+  grossMinor: number;
+  discountMinor: number;
+  totalMinor: number; // net of discount
+  paidMinor: number; // net of discount
   outstandingMinor: number;
 }
 
-export function tabTotals(lines: OrderLine[]): TabTotals {
-  const totalMinor = lines.reduce((s, l) => s + l.priceMinor * l.qty, 0);
-  const paidMinor = lines.reduce((s, l) => s + l.priceMinor * l.paidQty, 0);
-  return { totalMinor, paidMinor, outstandingMinor: totalMinor - paidMinor };
+// Discount is applied to the bill totals, not stored per line: both the
+// gross and gross-paid sums are discounted by the same factor, so a fully
+// paid tab always has outstandingMinor === 0 regardless of rounding.
+export function tabTotals(lines: OrderLine[], discountPct = 0): TabTotals {
+  const grossMinor = lines.reduce((s, l) => s + l.priceMinor * l.qty, 0);
+  const grossPaidMinor = lines.reduce((s, l) => s + l.priceMinor * l.paidQty, 0);
+  const discountMinor = Math.round((grossMinor * discountPct) / 100);
+  const totalMinor = grossMinor - discountMinor;
+  const paidMinor = grossPaidMinor - Math.round((grossPaidMinor * discountPct) / 100);
+  return { grossMinor, discountMinor, totalMinor, paidMinor, outstandingMinor: totalMinor - paidMinor };
 }
 
 export async function closeTab(tabId: number): Promise<void> {
@@ -80,7 +93,10 @@ export async function closeTab(tabId: number): Promise<void> {
       await db.tabs.delete(tabId);
       return;
     }
-    if (tabTotals(lines).outstandingMinor !== 0) throw new Error('Tab has unpaid items');
+    const tab = await db.tabs.get(tabId);
+    if (tabTotals(lines, tab?.discountPct ?? 0).outstandingMinor !== 0) {
+      throw new Error('Tab has unpaid items');
+    }
     await db.tabs.update(tabId, { status: 'closed', closedAt: Date.now() });
   });
 }
@@ -88,26 +104,32 @@ export async function closeTab(tabId: number): Promise<void> {
 export interface DaySummary {
   tabCount: number;
   coverCount: number;
-  takingsMinor: number;
-  items: { name: string; qty: number; amountMinor: number }[];
+  takingsMinor: number; // net of discounts
+  discountMinor: number;
+  items: { name: string; qty: number; amountMinor: number }[]; // gross amounts
 }
 
 export async function daySummary(dayStart: number, dayEnd: number): Promise<DaySummary> {
   const tabs = await db.tabs.where('closedAt').between(dayStart, dayEnd, true, false).toArray();
   const itemMap = new Map<string, { name: string; qty: number; amountMinor: number }>();
   let takingsMinor = 0;
+  let discountMinor = 0;
   let coverCount = 0;
   for (const tab of tabs) {
     coverCount += tab.covers;
     const lines = await db.orderLines.where({ tabId: tab.id! }).toArray();
+    let tabGrossPaid = 0;
     for (const l of lines) {
-      takingsMinor += l.priceMinor * l.paidQty;
+      tabGrossPaid += l.priceMinor * l.paidQty;
       const entry = itemMap.get(l.name) ?? { name: l.name, qty: 0, amountMinor: 0 };
       entry.qty += l.paidQty;
       entry.amountMinor += l.priceMinor * l.paidQty;
       itemMap.set(l.name, entry);
     }
+    const tabDiscount = Math.round((tabGrossPaid * (tab.discountPct ?? 0)) / 100);
+    takingsMinor += tabGrossPaid - tabDiscount;
+    discountMinor += tabDiscount;
   }
   const items = [...itemMap.values()].sort((a, b) => b.qty - a.qty);
-  return { tabCount: tabs.length, coverCount, takingsMinor, items };
+  return { tabCount: tabs.length, coverCount, takingsMinor, discountMinor, items };
 }

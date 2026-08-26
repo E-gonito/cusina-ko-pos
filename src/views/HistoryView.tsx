@@ -6,12 +6,14 @@ import { useCurrency } from '../useCurrency';
 
 function ClosedTab({ tab, currency }: { tab: Tab; currency: string }) {
   const lines = useLiveQuery(() => db.orderLines.where({ tabId: tab.id! }).toArray(), [tab.id]) ?? [];
-  const totals = tabTotals(lines);
+  const discountPct = tab.discountPct ?? 0;
+  const totals = tabTotals(lines, discountPct);
   const time = new Date(tab.closedAt!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   return (
     <details className="closed-tab">
       <summary>
         {time} — Table {tab.tableNumber}, {tab.covers} covers — {formatMoney(totals.totalMinor, currency)}
+        {discountPct > 0 && ` (${discountPct}% off)`}
       </summary>
       <ul>
         {lines.map(l => (

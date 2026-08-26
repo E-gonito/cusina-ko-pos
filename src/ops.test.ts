@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { db, type MenuItem } from './db';
 import {
   addItem, closeTab, daySummary, getOpenTab, openTab, payAll, payLine, unpayLine,
-  setCovers, setLineQty, tabTotals,
+  setCovers, setDiscount, setLineQty, tabTotals,
 } from './ops';
 import { resetDb } from './test-utils';
 
@@ -67,7 +67,9 @@ describe('payment and totals', () => {
     await addItem(tabId, adobo);
     await addItem(tabId, coke);
     let lines = await db.orderLines.where({ tabId }).toArray();
-    expect(tabTotals(lines)).toEqual({ totalMinor: 2780, paidMinor: 0, outstandingMinor: 2780 });
+    expect(tabTotals(lines)).toEqual({
+      grossMinor: 2780, discountMinor: 0, totalMinor: 2780, paidMinor: 0, outstandingMinor: 2780,
+    });
 
     const adoboLine = lines.find(l => l.name === 'Chicken Adobo')!;
     await payLine(adoboLine.id!);
@@ -81,6 +83,46 @@ describe('payment and totals', () => {
     await payAll(tabId);
     lines = await db.orderLines.where({ tabId }).toArray();
     expect(tabTotals(lines).outstandingMinor).toBe(0);
+  });
+});
+
+describe('discount', () => {
+  it('clamps the discount to 0–100 whole percent', async () => {
+    const tabId = await openTab(4);
+    await setDiscount(tabId, -10);
+    expect((await db.tabs.get(tabId))?.discountPct).toBe(0);
+    await setDiscount(tabId, 150);
+    expect((await db.tabs.get(tabId))?.discountPct).toBe(100);
+    await setDiscount(tabId, 12.4);
+    expect((await db.tabs.get(tabId))?.discountPct).toBe(12);
+  });
+
+  it('applies the percentage to totals and paid amounts', async () => {
+    const tabId = await openTab(4);
+    await addItem(tabId, adobo); // 1250
+    await addItem(tabId, coke); // 280 → gross 1530
+    let lines = await db.orderLines.where({ tabId }).toArray();
+    expect(tabTotals(lines, 10)).toEqual({
+      grossMinor: 1530, discountMinor: 153, totalMinor: 1377, paidMinor: 0, outstandingMinor: 1377,
+    });
+
+    const cokeLine = lines.find(l => l.name === 'Coke')!;
+    await payLine(cokeLine.id!);
+    lines = await db.orderLines.where({ tabId }).toArray();
+    // paid gross 280 → 10% off → 252
+    expect(tabTotals(lines, 10).paidMinor).toBe(252);
+    expect(tabTotals(lines, 10).outstandingMinor).toBe(1377 - 252);
+  });
+
+  it('lets a fully paid discounted tab close, and blocks a partly paid one', async () => {
+    const tabId = await openTab(4);
+    await setDiscount(tabId, 15);
+    await addItem(tabId, adobo);
+    await addItem(tabId, coke);
+    await expect(closeTab(tabId)).rejects.toThrow();
+    await payAll(tabId);
+    await closeTab(tabId);
+    expect((await db.tabs.get(tabId))?.status).toBe('closed');
   });
 });
 
@@ -133,6 +175,22 @@ describe('daySummary', () => {
       { name: 'Coke', qty: 2, amountMinor: 560 },
       { name: 'Chicken Adobo', qty: 1, amountMinor: 1250 },
     ]);
+  });
+
+  it('reports takings net of discounts', async () => {
+    const t1 = await openTab(1, 2);
+    await setDiscount(t1, 10);
+    await addItem(t1, coke);
+    await addItem(t1, coke); // gross paid 560 → 10% off → 504
+    await payAll(t1);
+    await closeTab(t1);
+
+    const now = Date.now();
+    const summary = await daySummary(now - 60_000, now + 60_000);
+    expect(summary.takingsMinor).toBe(504);
+    expect(summary.discountMinor).toBe(56);
+    // item breakdown stays gross; the discount is reported separately
+    expect(summary.items).toEqual([{ name: 'Coke', qty: 2, amountMinor: 560 }]);
   });
 
   it('excludes tabs closed outside the window', async () => {

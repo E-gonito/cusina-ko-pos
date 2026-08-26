@@ -18,7 +18,7 @@ export function FloorView({ onSelectTable }: { onSelectTable: (n: number) => voi
       const lines = await db.orderLines.where({ tabId: tab.id! }).toArray();
       byTable.set(tab.tableNumber, {
         covers: tab.covers,
-        outstandingMinor: tabTotals(lines).outstandingMinor,
+        outstandingMinor: tabTotals(lines, tab.discountPct ?? 0).outstandingMinor,
       });
     }
     return byTable;

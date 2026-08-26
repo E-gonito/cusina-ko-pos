@@ -41,6 +41,24 @@ describe('TableView', () => {
     expect(await screen.findByText('1')).toBeInTheDocument();
   });
 
+  it('applies a whole-bill percentage discount to the totals', async () => {
+    const user = userEvent.setup();
+    render(<TableView tableNumber={4} onBack={() => {}} />);
+    await user.click(await screen.findByRole('button', { name: 'Open table' }));
+    await user.click(await screen.findByRole('button', { name: 'Add items' }));
+    await user.click(await screen.findByRole('button', { name: /^Coke/ }));
+    await user.click(screen.getByRole('button', { name: /^Coke/ })); // gross £5.60
+
+    await user.click(screen.getByRole('button', { name: 'increase discount' }));
+    await user.click(screen.getByRole('button', { name: 'increase discount' })); // 10%
+    expect(await screen.findByText('10%')).toBeInTheDocument();
+    expect(await screen.findByText('Total £5.04 (−£0.56)')).toBeInTheDocument();
+    expect(screen.getByText('Due £5.04')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'decrease discount' }));
+    expect(await screen.findByText('Due £5.32')).toBeInTheDocument(); // 5% off 5.60
+  });
+
   it('pays an item, pays all, and closes the table', async () => {
     const user = userEvent.setup();
     const onBack = vi.fn();

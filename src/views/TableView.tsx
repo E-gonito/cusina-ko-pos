@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type OrderLine } from '../db';
 import {
   addItem, closeTab, getOpenTab, openTab, payAll, payLine, unpayLine,
-  setCovers, setLineQty, tabTotals,
+  setCovers, setDiscount, setLineQty, tabTotals,
 } from '../ops';
 import { formatMoney } from '../money';
 import { useCurrency } from '../useCurrency';
@@ -18,7 +18,8 @@ export function TableView({ tableNumber, onBack }: { tableNumber: number; onBack
       () => (tab?.id ? db.orderLines.where({ tabId: tab.id }).sortBy('addedAt') : Promise.resolve([] as OrderLine[])),
       [tab?.id],
     ) ?? [];
-  const totals = tabTotals(lines);
+  const discountPct = tab?.discountPct ?? 0;
+  const totals = tabTotals(lines, discountPct);
 
   async function handleClose() {
     if (!tab?.id) return;
@@ -44,6 +45,13 @@ export function TableView({ tableNumber, onBack }: { tableNumber: number; onBack
             <button aria-label="increase covers" onClick={() => setCovers(tab.id!, tab.covers + 1)}>+</button>
           </div>
 
+          <div className="covers-row">
+            Discount:
+            <button aria-label="decrease discount" onClick={() => setDiscount(tab.id!, discountPct - 5)}>−</button>
+            <span>{discountPct}%</span>
+            <button aria-label="increase discount" onClick={() => setDiscount(tab.id!, discountPct + 5)}>+</button>
+          </div>
+
           <ul className="lines">
             {lines.map(l => {
               const paid = l.qty > 0 && l.paidQty >= l.qty;
@@ -67,7 +75,10 @@ export function TableView({ tableNumber, onBack }: { tableNumber: number; onBack
           </ul>
 
           <div className="totals">
-            <span>Total {formatMoney(totals.totalMinor, currency)}</span>
+            <span>
+              Total {formatMoney(totals.totalMinor, currency)}
+              {totals.discountMinor > 0 && ` (−${formatMoney(totals.discountMinor, currency)})`}
+            </span>
             <span>Paid {formatMoney(totals.paidMinor, currency)}</span>
             <strong>Due {formatMoney(totals.outstandingMinor, currency)}</strong>
           </div>
