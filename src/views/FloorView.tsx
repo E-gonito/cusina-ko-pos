@@ -30,7 +30,7 @@ export function FloorView({ onSelectTable }: { onSelectTable: (n: number) => voi
         const s = statuses?.get(n);
         const cls = !s ? 'free' : s.outstandingMinor > 0 ? 'unpaid' : 'paid';
         return (
-          <button key={n} className={`table-card ${cls}`} onClick={() => onSelectTable(n)}>
+          <button key={n} data-table={n} className={`table-card ${cls}`} onClick={() => onSelectTable(n)}>
             <span className="table-num">Table {n}</span>
             {s && <span className="covers">{s.covers} covers</span>}
             {s && (

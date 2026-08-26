@@ -55,6 +55,32 @@ input {
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 0.6rem;
 }
+
+/* On wider screens, mirror the real floor plan: back room (10–14) on the
+   left, corridor gap, then 1–4 along the window and 5–9 along the bar. */
+@media (min-width: 640px) {
+  .floor {
+    grid-template-columns: repeat(13, 1fr);
+    grid-template-rows: 1fr 1fr;
+    grid-template-areas:
+      "t10 t10 t11 t11 . t1 t1 t2 t2 t3 t3 t4 t4"
+      "t12 t12 t13 t14 . t5 t5 t6 t6 t7 t8 t8 t9";
+  }
+  .floor .table-card[data-table="1"] { grid-area: t1; }
+  .floor .table-card[data-table="2"] { grid-area: t2; }
+  .floor .table-card[data-table="3"] { grid-area: t3; }
+  .floor .table-card[data-table="4"] { grid-area: t4; }
+  .floor .table-card[data-table="5"] { grid-area: t5; }
+  .floor .table-card[data-table="6"] { grid-area: t6; }
+  .floor .table-card[data-table="7"] { grid-area: t7; }
+  .floor .table-card[data-table="8"] { grid-area: t8; }
+  .floor .table-card[data-table="9"] { grid-area: t9; }
+  .floor .table-card[data-table="10"] { grid-area: t10; }
+  .floor .table-card[data-table="11"] { grid-area: t11; }
+  .floor .table-card[data-table="12"] { grid-area: t12; }
+  .floor .table-card[data-table="13"] { grid-area: t13; }
+  .floor .table-card[data-table="14"] { grid-area: t14; }
+}
 .table-card {
   display: flex;
   flex-direction: column;
