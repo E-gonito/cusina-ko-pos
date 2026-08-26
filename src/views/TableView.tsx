@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db';
+import { db, type OrderLine } from '../db';
 import {
   addItem, closeTab, getOpenTab, openTab, payAll, payLine, unpayLine,
   setCovers, setLineQty, tabTotals,
@@ -14,8 +14,8 @@ export function TableView({ tableNumber, onBack }: { tableNumber: number; onBack
   const [showMenu, setShowMenu] = useState(false);
   const tab = useLiveQuery(() => getOpenTab(tableNumber), [tableNumber]);
   const lines =
-    useLiveQuery(
-      () => (tab?.id ? db.orderLines.where({ tabId: tab.id }).sortBy('addedAt') : Promise.resolve([])),
+    useLiveQuery<OrderLine[]>(
+      () => (tab?.id ? db.orderLines.where({ tabId: tab.id }).sortBy('addedAt') : Promise.resolve([] as OrderLine[])),
       [tab?.id],
     ) ?? [];
   const totals = tabTotals(lines);
@@ -51,9 +51,9 @@ export function TableView({ tableNumber, onBack }: { tableNumber: number; onBack
                 <li key={l.id} className={paid ? 'line paid' : 'line'}>
                   <span className="line-name">{l.name}</span>
                   <span className="qty-controls">
-                    <button aria-label="decrease quantity" onClick={() => setLineQty(l.id!, l.qty - 1)}>−</button>
+                    <button aria-label={`decrease ${l.name}`} onClick={() => setLineQty(l.id!, l.qty - 1)}>−</button>
                     <span>{l.qty}</span>
-                    <button aria-label="increase quantity" onClick={() => setLineQty(l.id!, l.qty + 1)}>+</button>
+                    <button aria-label={`increase ${l.name}`} onClick={() => setLineQty(l.id!, l.qty + 1)}>+</button>
                   </span>
                   <span>{formatMoney(l.priceMinor * l.qty, currency)}</span>
                   {paid ? (

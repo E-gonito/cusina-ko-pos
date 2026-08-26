@@ -17,8 +17,8 @@ describe('TableView', () => {
     await user.click(await screen.findByRole('button', { name: 'Open table' }));
 
     await user.click(await screen.findByRole('button', { name: 'Add items' }));
-    await user.click(await screen.findByRole('button', { name: /Coke/ }));
-    await user.click(screen.getByRole('button', { name: /Coke/ })); // qty 2
+    await user.click(await screen.findByRole('button', { name: /^Coke/ }));
+    await user.click(screen.getByRole('button', { name: /^Coke/ })); // qty 2
 
     expect(await screen.findByText('Total £5.60')).toBeInTheDocument();
     expect(screen.getByText('Due £5.60')).toBeInTheDocument();
@@ -41,8 +41,8 @@ describe('TableView', () => {
     render(<TableView tableNumber={4} onBack={onBack} />);
     await user.click(await screen.findByRole('button', { name: 'Open table' }));
     await user.click(await screen.findByRole('button', { name: 'Add items' }));
-    await user.click(await screen.findByRole('button', { name: /Coke/ }));
-    await user.click(await screen.findByRole('button', { name: /Chicken Adobo/ }));
+    await user.click(await screen.findByRole('button', { name: /^Coke/ }));
+    await user.click(await screen.findByRole('button', { name: /^Chicken Adobo/ }));
     await user.click(screen.getByRole('button', { name: 'Hide menu' }));
 
     expect(screen.getByRole('button', { name: 'Close table' })).toBeDisabled();
