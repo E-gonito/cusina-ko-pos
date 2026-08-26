@@ -1,32 +1,20 @@
-# React + TypeScript + Vite
+# Cusina Ko POS
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Offline, single-device table & order tracker for Cusina Ko (14 tables).
 
-Currently, two official plugins are available:
+- **Run in dev:** `npm install && npm run dev`
+- **Tests:** `npm test`
+- **Production build:** `npm run build`, then serve `dist/` from any static host
+  (or `npm run preview` locally). Installable as a PWA; works fully offline.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+All data lives in the browser's IndexedDB (database `cusina-pos`) on the device
+where the app is used — there is no server. Clearing browser site data erases
+menu, tabs, and history.
 
-## React Compiler
+## Screens
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+- **Tables** — live floor view of tables 1–14 with covers and amount due.
+- **Table** — open a tab, set covers, tap-to-add items, pay per item / pay all, close.
+- **History** — closed tabs grouped by day.
+- **Summary** — daily takings, table count, covers, items sold.
+- **Menu** — add/edit/hide/delete items, set currency symbol.
